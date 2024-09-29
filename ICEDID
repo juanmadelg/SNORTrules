@@ -1,0 +1,121 @@
+NOTE: This rule is part of a lab. 
+# Reference: https://www.malware-traffic-analysis.net/2022/07/26/index.html
+# Distribution of GZIP file
+alert udp $HOME_NET any -> $EXTERNAL_NET 53
+(
+    msg:"DNS request to tritehairs.com";
+    content:"|74 65 68 61 69 72 73 03 63 6f 6d|";
+    sid:1000001;
+)
+
+alert tcp $HOME_NET any -> $EXTERNAL_NET 80
+(
+    msg:"HTTP GET request to tritehairs.com";
+    flow:to_server,established;
+    content:"GET", fast_pattern;
+    content:"tritehairs.com";
+    flowbits:set,gzip_dis;
+    flowbits:noalert;
+    sid:1000002;
+)
+
+alert tcp $EXTERNAL_NET 80 -> $HOME_NET any
+(
+    msg:"HTTP response for tritehairs.com - GZIP file detect";
+    flow:to_client,established;
+    http_header;
+    content:"application/gzip"; #|1f 8b|
+    flowbits:isset,gzip_dis;
+    sid:1000003;
+)
+
+# DNS requests to IcedID domains 
+alert udp $HOME_NET any -> $EXTERNAL_NET 53
+(
+    msg:"IcedID - DNS request to perainsaer.top";
+    content:"|70 65 72 61 6e 69 73 74 61 65 72 03 74 6f 70|";
+    sid:1000004;
+)
+
+alert udp $HOME_NET any -> $EXTERNAL_NET 53
+(
+    msg:"IcedID - DNS request to gruvihabralo.nl";
+    content:"|67 72 75 76 69 68 61 62 72 61 6c 6f 02 6e 6c|";
+    sid:1000005;
+)
+
+alert udp $HOME_NET any -> $EXTERNAL_NET 53
+(
+    msg:"IcedID - DNS request to wiandukachelly.com";
+    content:"|77 69 61 6e 64 75 6b 61 63 68 65 6c 6c 79 03 63 6f 6d|";
+    sid:1000006;
+)
+
+alert udp $HOME_NET any -> $EXTERNAL_NET 53
+(
+    msg:"IcedID - DNS request to alohasockstaina.com";
+    content:"|61 6c 6f 68 61 73 6f 63 6b 73 74 61 69 6e 61 03 63 6f 6d|";
+    sid:1000007;
+)
+
+# CobaltStrike distribution
+alert udp $HOME_NET any -> $EXTERNAL_NET 53
+(
+    msg:"IcedID - DNS request to lufuyadehi.com";
+    content:"|6c 75 66 75 79 61 64 65 68 69 03 63 6f 6d|";
+    sid:1000008;
+)
+
+alert tcp $HOME_NET any -> $EXTERNAL_NET 80
+(
+    msg:"HTTP GET request to lufuyadehi.com"; # GET svchost.dll
+    flow:to_server,established;
+    content:"GET", fast_pattern;
+    content:"lufuyadehi.com";
+    content:"/svchost.dll";
+    flowbits:set,cs_dis;
+    flowbits:noalert;
+    sid:1000009;
+)
+
+alert tcp $EXTERNAL_NET 80 -> $HOME_NET any
+(
+    msg:"HTTP response for lufuyadehi.com - CobaltStrike file detected";
+    flow:to_client,established;
+    http_header;
+    content:"application/octet-stream";
+    #content:"MZ", depth 2;
+    flowbits:isset,cs_dis;
+    sid:1000010;
+)
+
+# CobaltStrike C2
+alert udp $HOME_NET any -> $EXTERNAL_NET 53
+(
+    msg:"CobalStrike C2 - DNS request to zuyonijobo.com";
+    content:"|7a 75 79 6f 6e 69 6a 6f 62 6f 03 63 6f 6d|";
+    sid:1000011;
+)
+
+alert tcp $HOME_NET any -> 108.62.118.133 443
+(
+    msg:"CobalStrike C2 - TLS Client Hello";
+    ssl_state:client_hello;
+    content:"|7a 75 79 6f 6e 69 6a 6f 62 6f 2e 63 6f 6d|"; # zuyonijobo.com
+    flowbits:set,cs_c2;
+    flowbits:noalert;
+    sid:1000012;
+)
+
+alert tcp 108.62.118.133 443 -> $HOME_NET any 
+(
+    msg:"CobalStrike C2 - Connection established";
+    ssl_state:client_keyx,server_keyx;
+    content:"GB"; 
+    content:"Greater Manchester";
+    content:"Salford";
+    content:"Sectigo Limited";
+    content:"Sectigo RSA Domain Validation Secure Server CA";
+    flowbits:isset,cs_c2;
+    sid:1000013;
+)
